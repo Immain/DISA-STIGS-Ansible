@@ -1,0 +1,143 @@
+- hosts: localhost
+  connection: ssh
+  gather_facts: yes
+  vars:
+    instance_type: t2.micro
+    security_group: 
+    image: 
+    keypair: 
+    region: us-west-1
+    count: 1
+  vars_files:
+    - aws_keys.yaml
+  tasks:
+    - name: Create a security group
+      ec2_group:
+        name: 
+        description: 
+        region: us-west-1
+        aws_access_key: 
+        aws_secret_key: 
+        rules:
+          - proto: tcp
+            from_port: 22
+            to_port: 22
+            cidr_ip: 0.0.0.0/0
+          - proto: tcp
+            from_port: 80
+            to_port: 80
+            cidr_ip: 0.0.0.0/0
+          - proto: tcp
+            from_port: 443
+            to_port: 443
+            cidr_ip: 0.0.0.0/0
+        rules_egress:
+          - proto: all
+            cidr_ip: 0.0.0.0/0
+
+    - name: Launch the new EC2 Instance
+      ec2:
+        aws_access_key: 
+        aws_secret_key: 
+        group: 
+        instance_type: t2.micro
+        image: 
+        wait: true
+        region: us-west-1
+        keypair: DISA
+        count: 2
+      register: ec2
+
+    - name: Add the newly created host so that we can further contact it
+      add_host:
+        name: "{{ item.public_ip }}"
+        groups: webservers
+      with_items: "{{ ec2.instances }}"
+
+    - name: Add tag to Instance(s)
+      ec2_tag:
+        aws_access_key: 
+        aws_secret_key: 
+        resource: "{{ item.id }}"
+        region: us-west-1
+        state: "present"
+      with_items: "{{ ec2.instances }}"
+      args:
+        tags:
+          Type: webserver
+
+    - name: Wait for SSH to come up
+      wait_for:
+        host: "{{ item.public_ip }}"
+        port: 22
+        state: started
+      with_items: "{{ ec2.instances }}"
+- hosts: webservers  
+  remote_user: ec2-user
+  become: yes
+  gather_facts: yes
+
+  roles:
+    - role: DISA
+
+  tasks:
+  - name: Remove Apache
+    yum: name=httpd state=absent
+
+  - name: Install Apache Latest
+    yum: name=httpd state=latest
+
+  - name: Start Apache Enabling on Boot
+    service: name=httpd state=started enabled=yes
+
+  - name: Install MySQL
+    yum: name={{item}} state=present
+    with_items:
+    - mysql
+    - mysql-server
+    tags:
+    - mysql
+    - mysql-service
+
+  - name: run MySQL
+    service: name=mysqld state=started enabled=yes
+    tags:
+    - mysql
+    - mysql-service
+
+  - name: install required python MySQLdb lib to create databases and users
+    yum: name={{item}} state=present 
+    with_items:
+        - gcc-c++
+        - python3
+    tags:
+    - mysql
+    - mysql-dependencies
+
+  - name: Copy Data
+    shell: echo "<?php phpinfo (); ?>" /var/www/html/info.php
+
+  - name: Install HTTPD
+    yum: 
+      name: httpd
+
+  - name: Restarting httpd
+    service: name=httpd state=restarted
+ 
+  - name: Check if Apache is running
+    service: name=httpd state=started
+
+  - name: Start MySQL Service
+    service: 
+      name: mysqld
+      state: started
+      enabled: yes    
+
+- hosts: webservers
+  remote_user: ec2-user
+  become: yes
+  gather_facts: yes
+
+  roles: 
+    - role: motd
+

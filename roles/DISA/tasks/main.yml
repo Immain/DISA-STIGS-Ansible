@@ -1,0 +1,1257 @@
+---
+# tasks file for DISA
+- name: Disable service debug-shell
+  block:
+  - name: Gather the service facts
+    service_facts: null
+  - name: Disable service debug-shell
+    systemd:
+      name: debug-shell.service
+      enabled: 'no'
+      state: stopped
+      masked: 'yes'
+    when: '"debug-shell.service" in ansible_facts.services'
+  when:
+  - ansible_virtualization_role != "guest" or ansible_virtualization_type != "docker"
+  - disable_strategy | bool
+  - no_reboot_needed | bool
+  - medium_severity | bool
+  - low_disruption | bool
+  - low_complexity | bool
+  tags:
+  - CCE-80876-6
+  - NIST-800-171-3.4.5
+  - disable_strategy
+  - low_complexity
+  - low_disruption
+  - medium_severity
+  - no_reboot_needed
+  - service_debug-shell_disabled
+
+- name: Unit Socket Exists - debug-shell.socket
+  command: systemctl list-unit-files debug-shell.socket
+  args:
+    warn: false
+  register: socket_file_exists
+  changed_when: false
+  ignore_errors: true
+  check_mode: false
+  when:
+  - ansible_virtualization_role != "guest" or ansible_virtualization_type != "docker"
+  - disable_strategy | bool
+  - no_reboot_needed | bool
+  - medium_severity | bool
+  - low_disruption | bool
+  - low_complexity | bool
+  tags:
+  - CCE-80876-6
+  - NIST-800-171-3.4.5
+  - disable_strategy
+  - low_complexity
+  - low_disruption
+  - medium_severity
+  - no_reboot_needed
+  - service_debug-shell_disabled
+
+- name: Disable socket debug-shell
+  systemd:
+    name: debug-shell.socket
+    enabled: 'no'
+    state: stopped
+    masked: 'yes'
+  when:
+  - '"debug-shell.socket" in socket_file_exists.stdout_lines[1]'
+  - ansible_virtualization_role != "guest" or ansible_virtualization_type != "docker"
+  - disable_strategy | bool
+  - no_reboot_needed | bool
+  - medium_severity | bool
+  - low_disruption | bool
+  - low_complexity | bool
+  tags:
+  - CCE-80876-6
+  - NIST-800-171-3.4.5
+  - disable_strategy
+  - low_complexity
+  - low_disruption
+  - medium_severity
+  - no_reboot_needed
+  - service_debug-shell_disabled
+
+- name: Disable Ctrl-Alt-Del Reboot Activation
+  systemd:
+    name: ctrl-alt-del.target
+    masked: true
+  when:
+  - ansible_virtualization_role != "guest" or ansible_virtualization_type != "docker"
+  - disable_strategy | bool
+  - no_reboot_needed | bool
+  - high_severity | bool
+  - disable_ctrlaltdel_reboot | bool
+  - low_disruption | bool
+  - low_complexity | bool
+  tags:
+  - CCE-80785-9
+  - NIST-800-171-3.4.5
+  - NIST-800-53-AC-6(1)
+  - NIST-800-53-CM-6(a)
+  - disable_ctrlaltdel_reboot
+  - disable_strategy
+  - high_severity
+  - low_complexity
+  - low_disruption
+  - no_reboot_needed
+
+- name: require single user mode password
+  lineinfile:
+    create: true
+    dest: /usr/lib/systemd/system/rescue.service
+    regexp: ^#?ExecStart=
+    line: ExecStart=-/usr/lib/systemd/systemd-sulogin-shell rescue
+  when:
+  - ansible_virtualization_role != "guest" or ansible_virtualization_type != "docker"
+  - require_singleuser_auth | bool
+  - no_reboot_needed | bool
+  - restrict_strategy | bool
+  - medium_severity | bool
+  - low_disruption | bool
+  - low_complexity | bool
+  tags:
+  - CCE-80855-0
+  - NIST-800-171-3.1.1
+  - NIST-800-171-3.4.5
+  - NIST-800-53-AC-3
+  - NIST-800-53-CM-6(a)
+  - NIST-800-53-IA-2
+  - low_complexity
+  - low_disruption
+  - medium_severity
+  - no_reboot_needed
+  - require_singleuser_auth
+  - restrict_strategy
+
+- name: Disable Ctrl-Alt-Del Burst Action
+  lineinfile:
+    dest: /etc/systemd/system.conf
+    state: present
+    regexp: ^CtrlAltDelBurstAction
+    line: CtrlAltDelBurstAction=none
+    create: true
+  tags:
+  - CCE-80784-2
+  - NIST-800-171-3.4.5
+  - NIST-800-53-AC-6(1)
+  - NIST-800-53-CM-6(a)
+  - NIST-800-53-CM-6(a)
+  - disable_ctrlaltdel_burstaction
+  - disable_strategy
+  - high_severity
+  - low_complexity
+  - low_disruption
+  - no_reboot_needed
+  when:
+  - disable_strategy | bool
+  - no_reboot_needed | bool
+  - disable_ctrlaltdel_burstaction | bool
+  - high_severity | bool
+  - low_disruption | bool
+  - low_complexity | bool
+
+- name: Verify that Interactive Boot is Disabled in /etc/default/grub
+  replace:
+    dest: /etc/default/grub
+    regexp: systemd.confirm_spawn=(1|yes|true|on)
+    replace: systemd.confirm_spawn=no
+  tags:
+  - CCE-80826-1
+  - NIST-800-171-3.1.2
+  - NIST-800-171-3.4.5
+  - NIST-800-53-CM-6(a)
+  - NIST-800-53-SC-2(1)
+  - grub2_disable_interactive_boot
+  - low_complexity
+  - low_disruption
+  - medium_severity
+  - reboot_required
+  - restrict_strategy
+  when:
+  - restrict_strategy | bool
+  - reboot_required | bool
+  - grub2_disable_interactive_boot | bool
+  - medium_severity | bool
+  - low_disruption | bool
+  - low_complexity | bool
+
+- name: Verify that Interactive Boot is Disabled (runtime)
+  command: /sbin/grubby --update-kernel=ALL --remove-args="systemd.confirm_spawn"
+  tags:
+  - CCE-80826-1
+  - NIST-800-171-3.1.2
+  - NIST-800-171-3.4.5
+  - NIST-800-53-CM-6(a)
+  - NIST-800-53-SC-2(1)
+  - grub2_disable_interactive_boot
+  - low_complexity
+  - low_disruption
+  - medium_severity
+  - reboot_required
+  - restrict_strategy
+  when:
+  - restrict_strategy | bool
+  - reboot_required | bool
+  - grub2_disable_interactive_boot | bool
+  - medium_severity | bool
+  - low_disruption | bool
+  - low_complexity | bool
+
+- name: Ensure tmux is installed
+  package:
+    name: tmux
+    state: present
+  when:
+  - ansible_virtualization_role != "guest" or ansible_virtualization_type != "docker"
+  - package_tmux_installed | bool
+  - no_reboot_needed | bool
+  - medium_severity | bool
+  - enable_strategy | bool
+  - low_disruption | bool
+  - low_complexity | bool
+  tags:
+  - CCE-80644-8
+  - NIST-800-171-3.1.10
+  - NIST-800-53-CM-6(a)
+  - enable_strategy
+  - low_complexity
+  - low_disruption
+  - medium_severity
+  - no_reboot_needed
+  - package_tmux_installed
+
+- name: Configure tmux to lock session after inactivity
+  block:
+  - name: Deduplicate values from /etc/tmux.conf
+    lineinfile:
+      path: /etc/tmux.conf
+      create: false
+      regexp: ^\s*set -g lock-after-time\s+
+      state: absent
+  - name: Insert correct line to /etc/tmux.conf
+    lineinfile:
+      path: /etc/tmux.conf
+      create: true
+      line: set -g lock-after-time 900
+      state: present
+  when:
+  - ansible_virtualization_role != "guest" or ansible_virtualization_type != "docker"
+  - no_reboot_needed | bool
+  - restrict_strategy | bool
+  - medium_severity | bool
+  - configure_tmux_lock_after_time | bool
+  - low_disruption | bool
+  - low_complexity | bool
+  tags:
+  - CCE-82199-1
+  - configure_tmux_lock_after_time
+  - low_complexity
+  - low_disruption
+  - medium_severity
+  - no_reboot_needed
+  - restrict_strategy
+
+- name: Configure the tmux Lock Command
+  block:
+  - name: Deduplicate values from /etc/tmux.conf
+    lineinfile:
+      path: /etc/tmux.conf
+      create: false
+      regexp: ^\s*set -g lock-command\s+
+      state: absent
+  - name: Insert correct line to /etc/tmux.conf
+    lineinfile:
+      path: /etc/tmux.conf
+      create: true
+      line: set -g lock-command vlock
+      state: present
+  when:
+  - ansible_virtualization_role != "guest" or ansible_virtualization_type != "docker"
+  - configure_tmux_lock_command | bool
+  - restrict_strategy | bool
+  - medium_severity | bool
+  - no_reboot_needed | bool
+  - low_disruption | bool
+  - low_complexity | bool
+  tags:
+  - CCE-80940-0
+  - NIST-800-53-AC-11(a)
+  - NIST-800-53-AC-11(b)
+  - NIST-800-53-CM-6(a)
+  - configure_tmux_lock_command
+  - low_complexity
+  - low_disruption
+  - medium_severity
+  - no_reboot_needed
+  - restrict_strategy
+
+- name: Limit the Number of Concurrent Login Sessions Allowed Per User
+  lineinfile:
+    state: present
+    dest: /etc/security/limits.conf
+    insertbefore: ^# End of file
+    regexp: ^#?\*.*maxlogins
+    line: '*           hard    maxlogins     {{ var_accounts_max_concurrent_login_sessions }}'
+    create: true
+  tags:
+  - CCE-80955-8
+  - CJIS-5.5.2.2
+  - NIST-800-53-AC-10
+  - NIST-800-53-CM-6(a)
+  - accounts_max_concurrent_login_sessions
+  - low_complexity
+  - low_disruption
+  - low_severity
+  - no_reboot_needed
+  - restrict_strategy
+  when:
+  - no_reboot_needed | bool
+  - restrict_strategy | bool
+  - accounts_max_concurrent_login_sessions | bool
+  - low_severity | bool
+  - low_disruption | bool
+  - low_complexity | bool
+
+- name: Set user umask in /etc/csh.cshrc
+  replace:
+    path: /etc/csh.cshrc
+    regexp: umask.*
+    replace: umask {{ var_accounts_user_umask }}
+  tags:
+  - CCE-81037-4
+  - NIST-800-53-AC-6(1)
+  - NIST-800-53-CM-6(a)
+  - accounts_umask_etc_csh_cshrc
+  - low_complexity
+  - low_disruption
+  - no_reboot_needed
+  - restrict_strategy
+  - unknown_severity
+  when:
+  - unknown_severity | bool
+  - accounts_umask_etc_csh_cshrc | bool
+  - no_reboot_needed | bool
+  - restrict_strategy | bool
+  - low_disruption | bool
+  - low_complexity | bool
+
+- name: Set user umask in /etc/profile
+  replace:
+    path: /etc/profile
+    regexp: umask.*
+    replace: umask {{ var_accounts_user_umask }}
+  tags:
+  - CCE-81035-8
+  - NIST-800-53-AC-6(1)
+  - NIST-800-53-CM-6(a)
+  - accounts_umask_etc_profile
+  - low_complexity
+  - low_disruption
+  - no_reboot_needed
+  - restrict_strategy
+  - unknown_severity
+  when:
+  - unknown_severity | bool
+  - no_reboot_needed | bool
+  - restrict_strategy | bool
+  - accounts_umask_etc_profile | bool
+  - low_disruption | bool
+  - low_complexity | bool
+
+- name: Set user umask in /etc/bashrc
+  replace:
+    path: /etc/bashrc
+    regexp: umask.*
+    replace: umask {{ var_accounts_user_umask }}
+  tags:
+  - CCE-81036-6
+  - NIST-800-53-AC-6(1)
+  - NIST-800-53-CM-6(a)
+  - accounts_umask_etc_bashrc
+  - low_complexity
+  - low_disruption
+  - no_reboot_needed
+  - restrict_strategy
+  - unknown_severity
+  when:
+  - unknown_severity | bool
+  - no_reboot_needed | bool
+  - restrict_strategy | bool
+  - accounts_umask_etc_bashrc | bool
+  - low_disruption | bool
+  - low_complexity | bool
+
+- name: Add auth pam_faillock preauth deny before pam_unix.so
+  pamd:
+    name: '{{ item }}'
+    type: auth
+    control: sufficient
+    module_path: pam_unix.so
+    new_type: auth
+    new_control: required
+    new_module_path: pam_faillock.so
+    module_arguments: preauth silent deny={{ var_accounts_passwords_pam_faillock_deny }}
+    state: before
+  loop:
+  - system-auth
+  - password-auth
+  tags:
+  - CCE-80667-9
+  - CJIS-5.5.3
+  - NIST-800-171-3.1.8
+  - NIST-800-53-AC-7(a)
+  - NIST-800-53-CM-6(a)
+  - PCI-DSS-Req-8.1.6
+  - accounts_passwords_pam_faillock_deny
+  - low_complexity
+  - low_disruption
+  - medium_severity
+  - no_reboot_needed
+  - restrict_strategy
+  when:
+  - accounts_passwords_pam_faillock_deny | bool
+  - no_reboot_needed | bool
+  - restrict_strategy | bool
+  - medium_severity | bool
+  - low_disruption | bool
+  - low_complexity | bool
+
+- name: Add deny argument to auth pam_faillock preauth
+  pamd:
+    name: '{{ item }}'
+    type: auth
+    control: required
+    module_path: pam_faillock.so
+    module_arguments: preauth silent deny={{ var_accounts_passwords_pam_faillock_deny }}
+    state: args_present
+  loop:
+  - system-auth
+  - password-auth
+  tags:
+  - CCE-80667-9
+  - CJIS-5.5.3
+  - NIST-800-171-3.1.8
+  - NIST-800-53-AC-7(a)
+  - NIST-800-53-CM-6(a)
+  - PCI-DSS-Req-8.1.6
+  - accounts_passwords_pam_faillock_deny
+  - low_complexity
+  - low_disruption
+  - medium_severity
+  - no_reboot_needed
+  - restrict_strategy
+  when:
+  - accounts_passwords_pam_faillock_deny | bool
+  - no_reboot_needed | bool
+  - restrict_strategy | bool
+  - medium_severity | bool
+  - low_disruption | bool
+  - low_complexity | bool
+
+- name: Add auth pam_faillock authfail deny after pam_unix.so
+  pamd:
+    name: '{{ item }}'
+    type: auth
+    control: sufficient
+    module_path: pam_unix.so
+    new_type: auth
+    new_control: '[default=die]'
+    new_module_path: pam_faillock.so
+    module_arguments: authfail deny={{ var_accounts_passwords_pam_faillock_deny }}
+    state: after
+  loop:
+  - system-auth
+  - password-auth
+  tags:
+  - CCE-80667-9
+  - CJIS-5.5.3
+  - NIST-800-171-3.1.8
+  - NIST-800-53-AC-7(a)
+  - NIST-800-53-CM-6(a)
+  - PCI-DSS-Req-8.1.6
+  - accounts_passwords_pam_faillock_deny
+  - low_complexity
+  - low_disruption
+  - medium_severity
+  - no_reboot_needed
+  - restrict_strategy
+  when:
+  - accounts_passwords_pam_faillock_deny | bool
+  - no_reboot_needed | bool
+  - restrict_strategy | bool
+  - medium_severity | bool
+  - low_disruption | bool
+  - low_complexity | bool
+
+- name: Add deny argument to auth pam_faillock authfail
+  pamd:
+    name: '{{ item }}'
+    type: auth
+    new_type: auth
+    control: '[default=die]'
+    module_path: pam_faillock.so
+    module_arguments: authfail deny={{ var_accounts_passwords_pam_faillock_deny }}
+    state: args_present
+  loop:
+  - system-auth
+  - password-auth
+  tags:
+  - CCE-80667-9
+  - CJIS-5.5.3
+  - NIST-800-171-3.1.8
+  - NIST-800-53-AC-7(a)
+  - NIST-800-53-CM-6(a)
+  - PCI-DSS-Req-8.1.6
+  - accounts_passwords_pam_faillock_deny
+  - low_complexity
+  - low_disruption
+  - medium_severity
+  - no_reboot_needed
+  - restrict_strategy
+  when:
+  - accounts_passwords_pam_faillock_deny | bool
+  - no_reboot_needed | bool
+  - restrict_strategy | bool
+  - medium_severity | bool
+  - low_disruption | bool
+  - low_complexity | bool
+
+- name: Add account pam_faillock before pam_unix.so
+  pamd:
+    name: '{{ item }}'
+    type: account
+    control: required
+    module_path: pam_unix.so
+    new_type: account
+    new_control: required
+    new_module_path: pam_faillock.so
+    state: before
+  loop:
+  - system-auth
+  - password-auth
+  tags:
+  - CCE-80667-9
+  - CJIS-5.5.3
+  - NIST-800-171-3.1.8
+  - NIST-800-53-AC-7(a)
+  - NIST-800-53-CM-6(a)
+  - PCI-DSS-Req-8.1.6
+  - accounts_passwords_pam_faillock_deny
+  - low_complexity
+  - low_disruption
+  - medium_severity
+  - no_reboot_needed
+  - restrict_strategy
+  when:
+  - accounts_passwords_pam_faillock_deny | bool
+  - no_reboot_needed | bool
+  - restrict_strategy | bool
+  - medium_severity | bool
+  - low_disruption | bool
+  - low_complexity | bool
+
+- name: Add auth pam_faillock preauth fail_interval before pam_unix.so
+  pamd:
+    name: '{{ item }}'
+    type: auth
+    control: sufficient
+    module_path: pam_unix.so
+    new_type: auth
+    new_control: required
+    new_module_path: pam_faillock.so
+    module_arguments: preauth silent fail_interval={{ var_accounts_passwords_pam_faillock_fail_interval }}
+    state: before
+  loop:
+  - system-auth
+  - password-auth
+  tags:
+  - CCE-80669-5
+  - NIST-800-53-AC-7(a)
+  - NIST-800-53-CM-6(a)
+  - accounts_passwords_pam_faillock_interval
+  - low_complexity
+  - low_disruption
+  - medium_severity
+  - no_reboot_needed
+  - restrict_strategy
+  when:
+  - no_reboot_needed | bool
+  - restrict_strategy | bool
+  - medium_severity | bool
+  - accounts_passwords_pam_faillock_interval | bool
+  - low_disruption | bool
+  - low_complexity | bool
+
+- name: Add fail_interval argument to auth pam_faillock preauth
+  pamd:
+    name: '{{ item }}'
+    type: auth
+    control: required
+    module_path: pam_faillock.so
+    module_arguments: preauth silent fail_interval={{ var_accounts_passwords_pam_faillock_fail_interval }}
+    state: args_present
+  loop:
+  - system-auth
+  - password-auth
+  tags:
+  - CCE-80669-5
+  - NIST-800-53-AC-7(a)
+  - NIST-800-53-CM-6(a)
+  - accounts_passwords_pam_faillock_interval
+  - low_complexity
+  - low_disruption
+  - medium_severity
+  - no_reboot_needed
+  - restrict_strategy
+  when:
+  - no_reboot_needed | bool
+  - restrict_strategy | bool
+  - medium_severity | bool
+  - accounts_passwords_pam_faillock_interval | bool
+  - low_disruption | bool
+  - low_complexity | bool
+
+- name: Add auth pam_faillock aufthfail fail_interval after pam_unix.so
+  pamd:
+    name: '{{ item }}'
+    type: auth
+    control: sufficient
+    module_path: pam_unix.so
+    new_type: auth
+    new_control: '[default=die]'
+    new_module_path: pam_faillock.so
+    module_arguments: authfail fail_interval={{ var_accounts_passwords_pam_faillock_fail_interval }}
+    state: after
+  loop:
+  - system-auth
+  - password-auth
+  tags:
+  - CCE-80669-5
+  - NIST-800-53-AC-7(a)
+  - NIST-800-53-CM-6(a)
+  - accounts_passwords_pam_faillock_interval
+  - low_complexity
+  - low_disruption
+  - medium_severity
+  - no_reboot_needed
+  - restrict_strategy
+  when:
+  - no_reboot_needed | bool
+  - restrict_strategy | bool
+  - medium_severity | bool
+  - accounts_passwords_pam_faillock_interval | bool
+  - low_disruption | bool
+  - low_complexity | bool
+
+- name: Add fail_interval argument to auth pam_faillock authfail
+  pamd:
+    name: '{{ item }}'
+    type: auth
+    control: '[default=die]'
+    module_path: pam_faillock.so
+    module_arguments: authfail fail_interval={{ var_accounts_passwords_pam_faillock_fail_interval }}
+    state: args_present
+  loop:
+  - system-auth
+  - password-auth
+  tags:
+  - CCE-80669-5
+  - NIST-800-53-AC-7(a)
+  - NIST-800-53-CM-6(a)
+  - accounts_passwords_pam_faillock_interval
+  - low_complexity
+  - low_disruption
+  - medium_severity
+  - no_reboot_needed
+  - restrict_strategy
+  when:
+  - no_reboot_needed | bool
+  - restrict_strategy | bool
+  - medium_severity | bool
+  - accounts_passwords_pam_faillock_interval | bool
+  - low_disruption | bool
+  - low_complexity | bool
+
+- name: Add account pam_faillock before pam_unix.so
+  pamd:
+    name: '{{ item }}'
+    type: account
+    control: required
+    module_path: pam_unix.so
+    new_type: account
+    new_control: required
+    new_module_path: pam_faillock.so
+    state: before
+  loop:
+  - system-auth
+  - password-auth
+  tags:
+  - CCE-80669-5
+  - NIST-800-53-AC-7(a)
+  - NIST-800-53-CM-6(a)
+  - accounts_passwords_pam_faillock_interval
+  - low_complexity
+  - low_disruption
+  - medium_severity
+  - no_reboot_needed
+  - restrict_strategy
+  when:
+  - no_reboot_needed | bool
+  - restrict_strategy | bool
+  - medium_severity | bool
+  - accounts_passwords_pam_faillock_interval | bool
+  - low_disruption | bool
+  - low_complexity | bool
+
+- name: Do not allow users to reuse recent passwords - system-auth (change)
+  replace:
+    dest: /etc/pam.d/system-auth
+    follow: true
+    regexp: ^(password\s+sufficient\s+pam_unix\.so\s.*remember\s*=\s*)(\S+)(.*)$
+    replace: \g<1>{{ var_password_pam_unix_remember }}\g<3>
+  tags:
+  - CCE-80666-1
+  - CJIS-5.6.2.1.1
+  - NIST-800-171-3.5.8
+  - NIST-800-53-IA-5(1)(e)
+  - NIST-800-53-IA-5(f)
+  - PCI-DSS-Req-8.2.5
+  - accounts_password_pam_unix_remember
+  - configure_strategy
+  - low_complexity
+  - medium_disruption
+  - medium_severity
+  - no_reboot_needed
+  when:
+  - no_reboot_needed | bool
+  - configure_strategy | bool
+  - medium_severity | bool
+  - medium_disruption | bool
+  - accounts_password_pam_unix_remember | bool
+  - low_complexity | bool
+
+- name: Do not allow users to reuse recent passwords - system-auth (add)
+  replace:
+    dest: /etc/pam.d/system-auth
+    follow: true
+    regexp: ^password\s+sufficient\s+pam_unix\.so\s(?!.*remember\s*=\s*).*$
+    replace: \g<0> remember={{ var_password_pam_unix_remember }}
+  tags:
+  - CCE-80666-1
+  - CJIS-5.6.2.1.1
+  - NIST-800-171-3.5.8
+  - NIST-800-53-IA-5(1)(e)
+  - NIST-800-53-IA-5(f)
+  - PCI-DSS-Req-8.2.5
+  - accounts_password_pam_unix_remember
+  - configure_strategy
+  - low_complexity
+  - medium_disruption
+  - medium_severity
+  - no_reboot_needed
+  when:
+  - no_reboot_needed | bool
+  - configure_strategy | bool
+  - medium_severity | bool
+  - medium_disruption | bool
+  - accounts_password_pam_unix_remember | bool
+  - low_complexity | bool
+
+- name: Add auth pam_faillock preauth unlock_time before pam_unix.so
+  pamd:
+    name: '{{ item }}'
+    type: auth
+    control: sufficient
+    module_path: pam_unix.so
+    new_type: auth
+    new_control: required
+    new_module_path: pam_faillock.so
+    module_arguments: preauth silent unlock_time={{ var_accounts_passwords_pam_faillock_unlock_time }}
+    state: before
+  loop:
+  - system-auth
+  - password-auth
+  tags:
+  - CCE-80670-3
+  - CJIS-5.5.3
+  - NIST-800-171-3.1.8
+  - NIST-800-53-AC-7(b)
+  - NIST-800-53-CM-6(a)
+  - PCI-DSS-Req-8.1.7
+  - accounts_passwords_pam_faillock_unlock_time
+  - low_complexity
+  - low_disruption
+  - medium_severity
+  - no_reboot_needed
+  - restrict_strategy
+  when:
+  - no_reboot_needed | bool
+  - restrict_strategy | bool
+  - medium_severity | bool
+  - accounts_passwords_pam_faillock_unlock_time | bool
+  - low_disruption | bool
+  - low_complexity | bool
+
+- name: Add unlock_time argument to pam_faillock preauth
+  pamd:
+    name: '{{ item }}'
+    type: auth
+    control: required
+    module_path: pam_faillock.so
+    module_arguments: preauth silent unlock_time={{ var_accounts_passwords_pam_faillock_unlock_time }}
+    state: args_present
+  loop:
+  - system-auth
+  - password-auth
+  tags:
+  - CCE-80670-3
+  - CJIS-5.5.3
+  - NIST-800-171-3.1.8
+  - NIST-800-53-AC-7(b)
+  - NIST-800-53-CM-6(a)
+  - PCI-DSS-Req-8.1.7
+  - accounts_passwords_pam_faillock_unlock_time
+  - low_complexity
+  - low_disruption
+  - medium_severity
+  - no_reboot_needed
+  - restrict_strategy
+  when:
+  - no_reboot_needed | bool
+  - restrict_strategy | bool
+  - medium_severity | bool
+  - accounts_passwords_pam_faillock_unlock_time | bool
+  - low_disruption | bool
+  - low_complexity | bool
+
+- name: Add auth pam_faillock authfail unlock_interval after pam_unix.so
+  pamd:
+    name: '{{ item }}'
+    type: auth
+    control: sufficient
+    module_path: pam_unix.so
+    new_type: auth
+    new_control: '[default=die]'
+    new_module_path: pam_faillock.so
+    module_arguments: authfail unlock_time={{ var_accounts_passwords_pam_faillock_unlock_time }}
+    state: after
+  loop:
+  - system-auth
+  - password-auth
+  tags:
+  - CCE-80670-3
+  - CJIS-5.5.3
+  - NIST-800-171-3.1.8
+  - NIST-800-53-AC-7(b)
+  - NIST-800-53-CM-6(a)
+  - PCI-DSS-Req-8.1.7
+  - accounts_passwords_pam_faillock_unlock_time
+  - low_complexity
+  - low_disruption
+  - medium_severity
+  - no_reboot_needed
+  - restrict_strategy
+  when:
+  - no_reboot_needed | bool
+  - restrict_strategy | bool
+  - medium_severity | bool
+  - accounts_passwords_pam_faillock_unlock_time | bool
+  - low_disruption | bool
+  - low_complexity | bool
+
+- name: Add unlock_time argument to auth pam_faillock authfail
+  pamd:
+    name: '{{ item }}'
+    type: auth
+    control: '[default=die]'
+    module_path: pam_faillock.so
+    module_arguments: authfail unlock_time={{ var_accounts_passwords_pam_faillock_unlock_time }}
+    state: args_present
+  loop:
+  - system-auth
+  - password-auth
+  tags:
+  - CCE-80670-3
+  - CJIS-5.5.3
+  - NIST-800-171-3.1.8
+  - NIST-800-53-AC-7(b)
+  - NIST-800-53-CM-6(a)
+  - PCI-DSS-Req-8.1.7
+  - accounts_passwords_pam_faillock_unlock_time
+  - low_complexity
+  - low_disruption
+  - medium_severity
+  - no_reboot_needed
+  - restrict_strategy
+  when:
+  - no_reboot_needed | bool
+  - restrict_strategy | bool
+  - medium_severity | bool
+  - accounts_passwords_pam_faillock_unlock_time | bool
+  - low_disruption | bool
+  - low_complexity | bool
+
+- name: Add account pam_faillock before pam_unix.so
+  pamd:
+    name: '{{ item }}'
+    type: account
+    control: required
+    module_path: pam_unix.so
+    new_type: account
+    new_control: required
+    new_module_path: pam_faillock.so
+    state: before
+  loop:
+  - system-auth
+  - password-auth
+  tags:
+  - CCE-80670-3
+  - CJIS-5.5.3
+  - NIST-800-171-3.1.8
+  - NIST-800-53-AC-7(b)
+  - NIST-800-53-CM-6(a)
+  - PCI-DSS-Req-8.1.7
+  - accounts_passwords_pam_faillock_unlock_time
+  - low_complexity
+  - low_disruption
+  - medium_severity
+  - no_reboot_needed
+  - restrict_strategy
+  when:
+  - no_reboot_needed | bool
+  - restrict_strategy | bool
+  - medium_severity | bool
+  - accounts_passwords_pam_faillock_unlock_time | bool
+  - low_disruption | bool
+  - low_complexity | bool
+
+- name: Ensure PAM variable dcredit is set accordingly
+  lineinfile:
+    create: true
+    dest: /etc/security/pwquality.conf
+    regexp: ^#?\s*dcredit
+    line: dcredit = {{ var_password_pam_dcredit }}
+  tags:
+  - CCE-80653-9
+  - NIST-800-53-CM-6(a)
+  - NIST-800-53-IA-5(1)(a)
+  - NIST-800-53-IA-5(4)
+  - NIST-800-53-IA-5(c)
+  - PCI-DSS-Req-8.2.3
+  - accounts_password_pam_dcredit
+  - low_complexity
+  - low_disruption
+  - medium_severity
+  - no_reboot_needed
+  - restrict_strategy
+  when:
+  - accounts_password_pam_dcredit | bool
+  - no_reboot_needed | bool
+  - restrict_strategy | bool
+  - medium_severity | bool
+  - low_disruption | bool
+  - low_complexity | bool
+
+- name: Ensure PAM variable maxclassrepeat is set accordingly
+  lineinfile:
+    create: true
+    dest: /etc/security/pwquality.conf
+    regexp: ^#?\s*maxclassrepeat
+    line: maxclassrepeat = {{ var_password_pam_maxclassrepeat }}
+  tags:
+  - CCE-81034-1
+  - NIST-800-53-CM-6(a)
+  - NIST-800-53-IA-5(1)(a)
+  - NIST-800-53-IA-5(4)
+  - NIST-800-53-IA-5(c)
+  - accounts_password_pam_maxclassrepeat
+  - low_complexity
+  - low_disruption
+  - medium_severity
+  - no_reboot_needed
+  - restrict_strategy
+  when:
+  - accounts_password_pam_maxclassrepeat | bool
+  - no_reboot_needed | bool
+  - restrict_strategy | bool
+  - medium_severity | bool
+  - low_disruption | bool
+  - low_complexity | bool
+
+- name: Ensure PAM variable ocredit is set accordingly
+  lineinfile:
+    create: true
+    dest: /etc/security/pwquality.conf
+    regexp: ^#?\s*ocredit
+    line: ocredit = {{ var_password_pam_ocredit }}
+  tags:
+  - CCE-80663-8
+  - NIST-800-53-CM-6(a)
+  - NIST-800-53-IA-5(1)(a)
+  - NIST-800-53-IA-5(4)
+  - NIST-800-53-IA-5(c)
+  - accounts_password_pam_ocredit
+  - low_complexity
+  - low_disruption
+  - medium_severity
+  - no_reboot_needed
+  - restrict_strategy
+  when:
+  - no_reboot_needed | bool
+  - restrict_strategy | bool
+  - accounts_password_pam_ocredit | bool
+  - medium_severity | bool
+  - low_disruption | bool
+  - low_complexity | bool
+
+- name: Ensure PAM variable maxrepeat is set accordingly
+  lineinfile:
+    create: true
+    dest: /etc/security/pwquality.conf
+    regexp: ^#?\s*maxrepeat
+    line: maxrepeat = {{ var_password_pam_maxrepeat }}
+  tags:
+  - CCE-82066-2
+  - NIST-800-53-CM-6(a)
+  - NIST-800-53-IA-5(4)
+  - NIST-800-53-IA-5(c)
+  - accounts_password_pam_maxrepeat
+  - low_complexity
+  - low_disruption
+  - medium_severity
+  - no_reboot_needed
+  - restrict_strategy
+  when:
+  - accounts_password_pam_maxrepeat | bool
+  - no_reboot_needed | bool
+  - restrict_strategy | bool
+  - medium_severity | bool
+  - low_disruption | bool
+  - low_complexity | bool
+
+- name: Ensure PAM variable lcredit is set accordingly
+  lineinfile:
+    create: true
+    dest: /etc/security/pwquality.conf
+    regexp: ^#?\s*lcredit
+    line: lcredit = {{ var_password_pam_lcredit }}
+  tags:
+  - CCE-80655-4
+  - NIST-800-53-CM-6(a)
+  - NIST-800-53-IA-5(1)(a)
+  - NIST-800-53-IA-5(4)
+  - NIST-800-53-IA-5(c)
+  - PCI-DSS-Req-8.2.3
+  - accounts_password_pam_lcredit
+  - low_complexity
+  - low_disruption
+  - medium_severity
+  - no_reboot_needed
+  - restrict_strategy
+  when:
+  - no_reboot_needed | bool
+  - restrict_strategy | bool
+  - accounts_password_pam_lcredit | bool
+  - medium_severity | bool
+  - low_disruption | bool
+  - low_complexity | bool
+
+- name: Ensure PAM variable difok is set accordingly
+  lineinfile:
+    create: true
+    dest: /etc/security/pwquality.conf
+    regexp: ^#?\s*difok
+    line: difok = {{ var_password_pam_difok }}
+  tags:
+  - CCE-80654-7
+  - CJIS-5.6.2.1.1
+  - NIST-800-53-CM-6(a)
+  - NIST-800-53-IA-5(1)(b)
+  - NIST-800-53-IA-5(4)
+  - NIST-800-53-IA-5(c)
+  - accounts_password_pam_difok
+  - low_complexity
+  - low_disruption
+  - medium_severity
+  - no_reboot_needed
+  - restrict_strategy
+  when:
+  - no_reboot_needed | bool
+  - restrict_strategy | bool
+  - accounts_password_pam_difok | bool
+  - medium_severity | bool
+  - low_disruption | bool
+  - low_complexity | bool
+
+- name: Ensure PAM variable minlen is set accordingly
+  lineinfile:
+    create: true
+    dest: /etc/security/pwquality.conf
+    regexp: ^#?\s*minlen
+    line: minlen = {{ var_password_pam_minlen }}
+  tags:
+  - CCE-80656-2
+  - CJIS-5.6.2.1.1
+  - NIST-800-53-CM-6(a)
+  - NIST-800-53-IA-5(1)(a)
+  - NIST-800-53-IA-5(4)
+  - NIST-800-53-IA-5(c)
+  - PCI-DSS-Req-8.2.3
+  - accounts_password_pam_minlen
+  - low_complexity
+  - low_disruption
+  - medium_severity
+  - no_reboot_needed
+  - restrict_strategy
+  when:
+  - accounts_password_pam_minlen | bool
+  - no_reboot_needed | bool
+  - restrict_strategy | bool
+  - medium_severity | bool
+  - low_disruption | bool
+  - low_complexity | bool
+
+- name: Ensure PAM variable ucredit is set accordingly
+  lineinfile:
+    create: true
+    dest: /etc/security/pwquality.conf
+    regexp: ^#?\s*ucredit
+    line: ucredit = {{ var_password_pam_ucredit }}
+  tags:
+  - CCE-80665-3
+  - NIST-800-53-CM-6(a)
+  - NIST-800-53-IA-5(1)(a)
+  - NIST-800-53-IA-5(4)
+  - NIST-800-53-IA-5(c)
+  - PCI-DSS-Req-8.2.3
+  - accounts_password_pam_ucredit
+  - low_complexity
+  - low_disruption
+  - medium_severity
+  - no_reboot_needed
+  - restrict_strategy
+  when:
+  - no_reboot_needed | bool
+  - restrict_strategy | bool
+  - accounts_password_pam_ucredit | bool
+  - medium_severity | bool
+  - low_disruption | bool
+  - low_complexity | bool
+
+- name: Set Account Expiration Following Inactivity
+  lineinfile:
+    create: true
+    dest: /etc/default/useradd
+    regexp: ^INACTIVE
+    line: INACTIVE={{ var_account_disable_post_pw_expiration }}
+  tags:
+  - CCE-80954-1
+  - CJIS-5.6.2.1.1
+  - NIST-800-171-3.5.6
+  - NIST-800-53-AC-2(3)
+  - NIST-800-53-CM-6(a)
+  - NIST-800-53-IA-4(e)
+  - PCI-DSS-Req-8.1.4
+  - account_disable_post_pw_expiration
+  - low_complexity
+  - low_disruption
+  - medium_severity
+  - no_reboot_needed
+  - restrict_strategy
+  when:
+  - account_disable_post_pw_expiration | bool
+  - no_reboot_needed | bool
+  - restrict_strategy | bool
+  - medium_severity | bool
+  - low_disruption | bool
+  - low_complexity | bool
+
+- name: Set Password Minimum Length in login.defs
+  lineinfile:
+    dest: /etc/login.defs
+    regexp: ^PASS_MIN_LEN *[0-9]*
+    state: present
+    line: PASS_MIN_LEN        {{ var_accounts_password_minlen_login_defs }}
+    create: true
+  tags:
+  - CCE-80652-1
+  - CJIS-5.6.2.1
+  - NIST-800-171-3.5.7
+  - NIST-800-53-CM-6(a)
+  - NIST-800-53-IA-5(1)(a)
+  - NIST-800-53-IA-5(f)
+  - accounts_password_minlen_login_defs
+  - low_complexity
+  - low_disruption
+  - medium_severity
+  - no_reboot_needed
+  - restrict_strategy
+  when:
+  - accounts_password_minlen_login_defs | bool
+  - no_reboot_needed | bool
+  - restrict_strategy | bool
+  - medium_severity | bool
+  - low_disruption | bool
+  - low_complexity | bool
+
+- name: Prevent Log In to Accounts With Empty Password - system-auth
+  replace:
+    dest: /etc/pam.d/system-auth
+    follow: true
+    regexp: nullok
+  tags:
+  - CCE-80841-0
+  - CJIS-5.5.2
+  - NIST-800-171-3.1.1
+  - NIST-800-171-3.1.5
+  - NIST-800-53-CM-6(a)
+  - NIST-800-53-IA-5(1)(a)
+  - NIST-800-53-IA-5(c)
+  - PCI-DSS-Req-8.2.3
+  - configure_strategy
+  - high_severity
+  - low_complexity
+  - medium_disruption
+  - no_empty_passwords
+  - no_reboot_needed
+  when:
+  - no_empty_passwords | bool
+  - no_reboot_needed | bool
+  - high_severity | bool
+  - configure_strategy | bool
+  - medium_disruption | bool
+  - low_complexity | bool
+
+- name: Prevent Log In to Accounts With Empty Password - password-auth
+  replace:
+    dest: /etc/pam.d/password-auth
+    follow: true
+    regexp: nullok
+  tags:
+  - CCE-80841-0
+  - CJIS-5.5.2
+  - NIST-800-171-3.1.1
+  - NIST-800-171-3.1.5
+  - NIST-800-53-CM-6(a)
+  - NIST-800-53-IA-5(1)(a)
+  - NIST-800-53-IA-5(c)
+  - PCI-DSS-Req-8.2.3
+  - configure_strategy
+  - high_severity
+  - low_complexity
+  - medium_disruption
+  - no_empty_passwords
+  - no_reboot_needed
+  when:
+  - no_empty_passwords | bool
+  - no_reboot_needed | bool
+  - high_severity | bool
+  - configure_strategy | bool
+  - medium_disruption | bool
+  - low_complexity | bool
